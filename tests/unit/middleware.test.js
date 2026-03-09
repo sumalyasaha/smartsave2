@@ -73,7 +73,7 @@ describe('requireAuth middleware', () => {
     const token = signToken({ userId: 'user-uuid-1' });
     req = { headers: { authorization: `Bearer ${token}` } };
 
-    requireAuth(req, res, next);
+    requireAuth()(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.user).toEqual({ userId: 'user-uuid-1' });
@@ -82,7 +82,7 @@ describe('requireAuth middleware', () => {
   test('returns 401 when Authorization header is missing', () => {
     req = { headers: {} };
 
-    requireAuth(req, res, next);
+    requireAuth()(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith(
@@ -95,7 +95,7 @@ describe('requireAuth middleware', () => {
     const token = signToken({ userId: 'abc' });
     req = { headers: { authorization: token } };
 
-    requireAuth(req, res, next);
+    requireAuth()(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
@@ -104,7 +104,7 @@ describe('requireAuth middleware', () => {
   test('returns 401 for invalid/tampered token', () => {
     req = { headers: { authorization: 'Bearer invalid.token.value' } };
 
-    requireAuth(req, res, next);
+    requireAuth()(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
@@ -113,7 +113,7 @@ describe('requireAuth middleware', () => {
   test('returns 401 for empty Bearer token', () => {
     req = { headers: { authorization: 'Bearer ' } };
 
-    requireAuth(req, res, next);
+    requireAuth()(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('requireAuth middleware', () => {
     const token = signToken({ userId });
     req = { headers: { authorization: `Bearer ${token}` } };
 
-    requireAuth(req, res, next);
+    requireAuth()(req, res, next);
 
     expect(req.user.userId).toBe(userId);
   });

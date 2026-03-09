@@ -14,6 +14,32 @@
       "name": "Auth",
       "item": [
         {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane.doe@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/forgot-password",
+            "description": "Sends a password reset link to the email if the account exists. Always returns same success message. Rate limit: 1 per hour per email."
+          }
+        },
+        {
+          "name": "Reset Password (Confirm)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reset_token\": \"a7b8c9d0-e1f2-4a5b-6c7d-8e9f0a1b2c3d\",\n  \"new_password\": \"NewStrongPassword2026!\",\n  \"confirm_new_password\": \"NewStrongPassword2026!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/password-reset/confirm",
+            "description": "Reset password using the token from the forgot-password email link. Token must be valid, not expired, and not already used."
+          }
+        },
+        {
           "name": "Send Verification Code",
           "request": {
             "method": "POST",
@@ -49,7 +75,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"1234\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/verification/verify",
             "description": "Signup flow: verify OTP (no verificationToken in body). Returns verificationToken for use in Signup. Replace code with OTP from Send Verification Code or email."
@@ -78,7 +104,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"code\": \"123456\",\n  \"verificationToken\": \"{{verificationToken}}\"\n}"
+              "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"code\": \"1234\",\n  \"verificationToken\": \"{{verificationToken}}\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/verification/verify",
             "description": "Login flow: after Login returns Verification_token, send OTP code and verificationToken. Returns accessToken (JWT); saved to token for authenticated requests."
@@ -167,6 +193,38 @@
             "url": "{{baseUrl}}/api/v1/users/profile",
             "description": "Get current user profile, investments, and masked card. Requires auth."
           }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"SecurePassword123!\",\n  \"newPassword\": \"NewStrongPassword456!\",\n  \"confirmNewPassword\": \"NewStrongPassword456!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/change-password",
+            "description": "Change password. Requires auth. currentPassword must match; newPassword min 8 chars with letter and number; confirmNewPassword must match newPassword."
+          }
+        },
+        {
+          "name": "Add Card (with Verification)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationToken\": \"{{verificationToken}}\",\n  \"cardNumber\": \"4111222233334444\",\n  \"cardholderName\": \"JANE DOE\",\n  \"expiryDate\": \"12/28\",\n  \"cvv\": \"123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/card",
+            "description": "Add payment method after 2FA. Get verificationToken from Verify Email Code (email + code from Verify Card Initiate OTP)."
+          }
         }
       ]
     },
@@ -174,16 +232,19 @@
       "name": "Payments",
       "item": [
         {
-          "name": "Validate Card",
+          "name": "Verify Card Initiate",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"cardNumber\": \"4111111111111111\",\n  \"cardholderName\": \"JANE DOE\",\n  \"expiryDate\": \"08/29\",\n  \"cvv\": \"123\"\n}"
             },
-            "url": "{{baseUrl}}/api/v1/payments/validate-card",
-            "description": "Validates card (Luhn, cardholder name, expiry, CVV). 4111111111111111 is a valid test card number."
+            "url": "{{baseUrl}}/api/v1/payments/verify-card-initiate",
+            "description": "Combined: validates card (if body sent) and initiates card 2FA (sends OTP to user's email). Optional body: cardNumber, cardholderName, expiryDate, cvv — if provided, all four required and validated. Then use Verify Email Code to get verificationToken, then Add Card."
           }
         }
       ]

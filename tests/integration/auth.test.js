@@ -30,6 +30,7 @@ describe('POST /api/v1/auth/verification/send', () => {
   });
 
   test('returns 200 success for valid email (no prior rate limit row)', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });  // existing user check (signup)
     mockClient.query
       .mockResolvedValueOnce({ rows: [] })          // rate limit check — no row
       .mockResolvedValueOnce({ rows: [] })           // insert rate limit
@@ -47,6 +48,7 @@ describe('POST /api/v1/auth/verification/send', () => {
   });
 
   test('returns 200 and increments count when prior request is within window', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });  // existing user check
     // Existing row within rate limit window, count = 1 (< 3)
     const recentTime = new Date(Date.now() - 10000).toISOString(); // 10 seconds ago
     mockClient.query
@@ -62,6 +64,7 @@ describe('POST /api/v1/auth/verification/send', () => {
   });
 
   test('returns 429 when rate limit is exceeded (count >= 3 within window)', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });  // existing user check
     const recentTime = new Date(Date.now() - 10000).toISOString(); // 10s ago (within 1-min window)
     mockClient.query.mockResolvedValueOnce({
       rows: [{ request_count: 3, last_request_at: recentTime }],
@@ -77,6 +80,7 @@ describe('POST /api/v1/auth/verification/send', () => {
   });
 
   test('resets count when previous request was outside the rate limit window', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });  // existing user check
     const oldTime = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 min ago
     mockClient.query
       .mockResolvedValueOnce({ rows: [{ request_count: 3, last_request_at: oldTime }] })
@@ -101,6 +105,7 @@ describe('POST /api/v1/auth/verification/send', () => {
   });
 
   test('returns 500 when email service throws', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });  // existing user check
     mockClient.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -116,6 +121,7 @@ describe('POST /api/v1/auth/verification/send', () => {
   });
 
   test('accepts optional reason field', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });  // existing user check
     mockClient.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -143,7 +149,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
   test('signup flow: valid code returns 200 with verificationToken', async () => {
     const otpRecord = {
       id: 1,
-      otp_code: '123456',
+      otp_code: '1234',
       is_used: 0,
       created_at: new Date().toISOString(),
       verification_token: null,
@@ -154,7 +160,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '123456' });
+      .send({ email: 'test@example.com', code: '1234' });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('success');
@@ -168,7 +174,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '123456' });
+      .send({ email: 'test@example.com', code: '1234' });
 
     expect(res.status).toBe(400);
     expect(res.body.status).toBe('error');
@@ -177,12 +183,12 @@ describe('POST /api/v1/auth/verification/verify', () => {
 
   test('signup flow: returns 400 when OTP is already used', async () => {
     mockClient.query.mockResolvedValueOnce({
-      rows: [{ id: 1, otp_code: '123456', is_used: 1, created_at: new Date().toISOString() }],
+      rows: [{ id: 1, otp_code: '1234', is_used: 1, created_at: new Date().toISOString() }],
     });
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '123456' });
+      .send({ email: 'test@example.com', code: '1234' });
 
     expect(res.status).toBe(400);
   });
@@ -190,12 +196,12 @@ describe('POST /api/v1/auth/verification/verify', () => {
   test('signup flow: returns 410 when OTP is expired (older than 10 minutes)', async () => {
     const expiredTime = new Date(Date.now() - 11 * 60 * 1000).toISOString(); // 11 min ago
     mockClient.query.mockResolvedValueOnce({
-      rows: [{ id: 1, otp_code: '123456', is_used: 0, created_at: expiredTime }],
+      rows: [{ id: 1, otp_code: '1234', is_used: 0, created_at: expiredTime }],
     });
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '123456' });
+      .send({ email: 'test@example.com', code: '1234' });
 
     expect(res.status).toBe(410);
     expect(res.body.message).toContain('expired');
@@ -203,12 +209,12 @@ describe('POST /api/v1/auth/verification/verify', () => {
 
   test('signup flow: returns 400 when OTP code does not match', async () => {
     mockClient.query.mockResolvedValueOnce({
-      rows: [{ id: 1, otp_code: '999999', is_used: 0, created_at: new Date().toISOString() }],
+      rows: [{ id: 1, otp_code: '9999', is_used: 0, created_at: new Date().toISOString() }],
     });
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '123456' });
+      .send({ email: 'test@example.com', code: '1234' });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBe('Incorrect or expired code.');
@@ -220,7 +226,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
     const loginVerifToken = 'some-uuid-verification-token';
     const otpRecord = {
       id: 2,
-      otp_code: '654321',
+      otp_code: '6543',
       is_used: 0,
       created_at: new Date().toISOString(),
       reason: 'SIGN_IN',
@@ -233,7 +239,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '654321', verificationToken: loginVerifToken });
+      .send({ email: 'test@example.com', code: '6543', verificationToken: loginVerifToken });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('success');
@@ -246,7 +252,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '654321', verificationToken: 'bad-token' });
+      .send({ email: 'test@example.com', code: '6543', verificationToken: 'bad-token' });
 
     expect(res.status).toBe(400);
   });
@@ -254,13 +260,13 @@ describe('POST /api/v1/auth/verification/verify', () => {
   test('login flow: returns 400 when user not found in user_profile', async () => {
     mockClient.query
       .mockResolvedValueOnce({
-        rows: [{ id: 2, otp_code: '654321', is_used: 0, created_at: new Date().toISOString() }],
+        rows: [{ id: 2, otp_code: '6543', is_used: 0, created_at: new Date().toISOString() }],
       })
       .mockResolvedValueOnce({ rows: [] }); // user not found
 
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'test@example.com', code: '654321', verificationToken: 'some-token' });
+      .send({ email: 'test@example.com', code: '6543', verificationToken: 'some-token' });
 
     expect(res.status).toBe(400);
   });
@@ -268,7 +274,7 @@ describe('POST /api/v1/auth/verification/verify', () => {
   test('returns 400 when email is invalid', async () => {
     const res = await request(app)
       .post('/api/v1/auth/verification/verify')
-      .send({ email: 'bad-email', code: '123456' });
+      .send({ email: 'bad-email', code: '1234' });
 
     expect(res.status).toBe(400);
     expect(pool.connect).not.toHaveBeenCalled();

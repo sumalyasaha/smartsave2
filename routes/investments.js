@@ -13,7 +13,7 @@ const router = express.Router();
  */
 router.post(
   '/proportion',
-  requireAuth,
+  requireAuth(),
   [
     body('proportions')
       .isArray({ min: 1 })

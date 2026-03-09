@@ -2,46 +2,14 @@
 
 ## Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running (includes Docker Engine and Docker Compose).
 
----
-
-## Option A: Run without Compose (works on all Docker versions)
-
-If `docker compose` or `docker-compose` gives "unknown command", use this script (plain `docker` only):
-
-```bash
-cd /Users/ssaha6/side/smartSave/smartsave2
-chmod +x scripts/docker-run.sh
-./scripts/docker-run.sh
-```
-
-- Starts MySQL, runs the schema, builds the app image, then runs the app.
-- **App:** http://localhost:3000  
-- **MySQL:** localhost:3306 (user `smartsave`, password `smartsave`)
-
-To stop: close the terminal or press Ctrl+C, then remove the MySQL container:
-
-```bash
-docker rm -f smartsave-mysql
-```
-
----
-
-## Option B: App + MySQL with Docker Compose
+## Option 1: App + MySQL with Docker Compose (recommended)
 
 Builds the app image, starts MySQL, runs the schema, then starts the app.
 
-Try **with a space** first (Docker 20.10+):
-
 ```bash
-cd /path/to/smartsave2
-docker compose up --build
-```
-
-If you get "unknown command", try **with a hyphen** (standalone Compose):
-
-```bash
+# From the project root (smartsave2)
 docker-compose up --build
 ```
 
@@ -60,7 +28,7 @@ Stop and remove containers:
 docker-compose down
 ```
 
-## Option C: Build and run the app image only
+## Option 2: Build and run the app image only
 
 Use this when you already have MySQL running (e.g. on the host or elsewhere).
 

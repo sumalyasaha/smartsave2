@@ -9,6 +9,11 @@ jest.mock('../../services/email', () => ({
   sendVerificationEmail: jest.fn(),
 }));
 
+jest.mock('../../utils/encryption', () => ({
+  encrypt: jest.fn((v) => (v == null || v === '' ? null : `enc:${v}`)),
+  decrypt: jest.fn((v) => (v == null || v === '' ? null : (String(v).startsWith('enc:') ? v.slice(4) : v))),
+}));
+
 jest.mock('bcrypt', () => ({
   hash: jest.fn().mockResolvedValue('$2b$10$mockedhash'),
   compare: jest.fn().mockResolvedValue(true),
@@ -116,7 +121,7 @@ describe('POST /api/v1/users/signup', () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toContain('already registered');
+    expect(res.body.message).toMatch(/same email|already registered/i);
   });
 
   test('returns 400 when password is too short', async () => {
@@ -283,13 +288,21 @@ describe('GET /api/v1/users/profile', () => {
   test('returns 200 with full profile (user + investments + card)', async () => {
     pool.query
       .mockResolvedValueOnce({
-        rows: [{ user_id: 'user-uuid-123', full_name: 'Jane Doe', email: 'jane@example.com', phone_number: '+1234567890' }],
+        rows: [{ user_id: 'user-uuid-123', full_name: 'Jane Doe', email: 'jane@example.com', phone_number: 'enc:+1234567890' }],
       })
       .mockResolvedValueOnce({
         rows: [{ asset_id: 'EQUITY_FUND_01', name: 'Global Equity Fund', percentage: '60.00' }],
       })
       .mockResolvedValueOnce({
-        rows: [{ cardholder_name: 'JANE DOE', card_type: 'Visa', last_four: '1111', expiry_date: FUTURE_EXPIRY }],
+        rows: [{
+          card_number_encrypted: 'enc:4111111111111111',
+          cardholder_name_encrypted: 'enc:JANE DOE',
+          expiry_date_encrypted: `enc:${FUTURE_EXPIRY}`,
+          card_type: 'Visa',
+          last_four: null,
+          cardholder_name: null,
+          expiry_date: null,
+        }],
       });
 
     const res = await request(app)
@@ -299,6 +312,7 @@ describe('GET /api/v1/users/profile', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('success');
     expect(res.body.data.user.fullName).toBe('Jane Doe');
+    expect(res.body.data.user.phoneNumber).toBe('+1234567890');
     expect(res.body.data.investments).toHaveLength(1);
     expect(res.body.data.investments[0].assetId).toBe('EQUITY_FUND_01');
     expect(res.body.data.paymentMethod.cardType).toBe('Visa');
